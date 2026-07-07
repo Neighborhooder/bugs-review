@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Bug Trends Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<style>
+:root{color-scheme:light;--navy:#1F3864;--blue:#2E5496;--blue2:#4E79A7;--lblue:#9DC3E6;--red:#E15759;--green:#59A14F;--amber:#F1A33C;--purple:#B07AA1;--grey:#8895a7;--p0:#C00000;--p1:#ED7D31;--p2:#FFC000;--p3:#70AD47;--un:#A6A6A6;--bg:#f6f8fc;--card:#fff;--ink:#1c2733;--line:#e3e8f0;
+--add-bg:#e6ffec;--add-ink:#1a7f37;--del-bg:#ffebe9;--del-ink:#cf222e;--hunk-bg:#ddf4ff;--hunk-ink:#0550ae;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;font-size:14px;line-height:1.45}
+.wrap{max-width:1180px;margin:0 auto;padding:22px 18px 60px}
+header h1{margin:0 0 2px;font-size:23px;color:var(--navy);letter-spacing:-.2px}
+header .sub{color:var(--grey);font-size:13px}
+.period{display:inline-block;margin-top:8px;background:var(--navy);color:#fff;padding:3px 11px;border-radius:20px;font-size:12px;font-weight:600}
+h2{font-size:15px;color:var(--navy);margin:30px 0 12px;padding-bottom:7px;border-bottom:2px solid var(--line);text-transform:uppercase;letter-spacing:.5px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:16px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(20,40,80,.05)}
+.kpi .label{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--grey);font-weight:600}
+.kpi .val{font-size:27px;font-weight:700;color:var(--navy);margin-top:3px;line-height:1}
+.kpi .delta{font-size:12px;margin-top:5px;font-weight:600}
+.up{color:var(--red)}.down{color:var(--green)}.flat{color:var(--grey)}
+.good{color:var(--add-ink)}.bad{color:var(--del-ink)}.neu2{color:var(--grey)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px 16px;box-shadow:0 1px 3px rgba(20,40,80,.05)}
+.card h3{margin:0 0 3px;font-size:14px;color:var(--ink)}
+.card .cap{font-size:11.5px;color:var(--grey);margin:0 0 8px}
+.chartbox{position:relative;height:268px}
+.chartbox.tall{height:330px}
+.full{grid-column:1/-1}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{padding:7px 9px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+th{background:var(--blue);color:#fff;font-weight:600;cursor:pointer;position:sticky;top:0;font-size:11.5px}
+th:first-child,td:first-child{text-align:left;font-weight:600}
+tbody tr:nth-child(even){background:#f7f9fd}
+tbody tr:hover{background:#eef3fb}
+tbody tr.sel{background:#fff4d6 !important;box-shadow:inset 3px 0 0 var(--amber)}
+tfoot td{font-weight:700;background:var(--lblue);color:var(--navy)}
+.tablewrap{overflow:auto;max-height:520px;border:1px solid var(--line);border-radius:12px}
+.insights{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:10px;padding:6px 20px;margin-top:8px}
+.insights li{margin:9px 0}
+.note{background:#fff8ec;border:1px solid #f0e0c0;border-radius:8px;padding:9px 13px;font-size:12px;color:#7a6320;margin:8px 0 0}
+.foot{color:var(--grey);font-size:11px;margin-top:26px;border-top:1px solid var(--line);padding-top:12px}
+/* tabs */
+.tabs{display:inline-flex;background:#e7ecf5;border-radius:11px;padding:4px;margin-top:14px;gap:3px}
+.tab{appearance:none;border:0;background:transparent;color:var(--blue);font-weight:600;font-size:13px;padding:8px 18px;border-radius:8px;cursor:pointer;transition:.15s}
+.tab:hover{color:var(--navy)}
+.tab.active{background:#fff;color:var(--navy);box-shadow:0 1px 3px rgba(20,40,80,.12)}
+/* month selector */
+.toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.toolbar label{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--grey);font-weight:700}
+select{font-size:14px;font-weight:600;color:var(--navy);border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:#fff;cursor:pointer}
+.navbtn{appearance:none;border:1px solid var(--line);background:#fff;color:var(--navy);font-size:16px;font-weight:700;width:34px;height:34px;border-radius:8px;cursor:pointer;line-height:1}
+.navbtn:hover{background:#eef3fb}
+.navbtn:disabled{opacity:.35;cursor:default}
+.toolbar .spacer{flex:1}
+.toolbar .hint{font-size:12px;color:var(--grey)}
+/* diff stat bar */
+.diffstat{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin:14px 0 10px;font-size:13px;font-weight:600}
+.diffstat .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:20px;background:#fff;border:1px solid var(--line)}
+.sq{width:11px;height:11px;border-radius:3px;display:inline-block}
+/* comparison table */
+.cmptbl th{cursor:default}
+.cmptbl td:first-child,.cmptbl th:first-child{text-align:left;font-weight:600}
+.cmptbl td.good{color:var(--add-ink);font-weight:700}
+.cmptbl td.bad{color:var(--del-ink);font-weight:700}
+.cmptbl td.neu2{color:var(--grey);font-weight:600}
+/* release highlights */
+.relbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.relbar .lbl{font-size:12.5px;color:var(--ink);font-weight:600}
+.relpanel{margin-top:12px}
+.relhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.relhead .rname{font-size:17px;font-weight:700;color:var(--navy)}
+.erabadge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px}
+.erabadge.hikari{background:#fbe6c8;color:#9a6212}
+.erabadge.pre{background:#e7eef8;color:#2E5496}
+.relcnt{font-size:12px;color:var(--grey);font-weight:600}
+.relsec{margin-top:12px}
+.relsec h4{margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--grey)}
+.shiplist{margin:0;padding-left:18px}
+.shiplist li{margin:3px 0}
+.deflist{list-style:none;margin:0;padding:0}
+.deflist li{display:flex;gap:9px;align-items:flex-start;padding:9px 0;border-top:1px solid #f0f2f7}
+.deflist li:first-child{border-top:0}
+.sevpill{flex:none;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:5px;min-width:34px;text-align:center;margin-top:1px}
+.def-t{font-weight:600;line-height:1.35}
+.def-r{color:var(--grey);font-size:12px;margin-top:2px;line-height:1.4}
+.relempty{color:var(--grey);font-style:italic;font-size:12.5px;margin:4px 0 0}
+/* severity vs-avg list */
+.sevlist{list-style:none;margin:8px 0 0;padding:0;font-size:12.5px}
+.sevlist li{display:flex;align-items:center;gap:8px;padding:5px 2px;border-top:1px solid #f0f2f7}
+.sevlist .dot{width:10px;height:10px;border-radius:50%;flex:none}
+.sevlist .nm{flex:1}
+.sevlist .ct{font-weight:700}
+.sevlist .vs{min-width:96px;text-align:right;font-weight:600;font-size:11.5px}
+/* reporter bars */
+.rep{list-style:none;margin:6px 0 0;padding:0}
+.rep li{margin:8px 0}
+.rep .top{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px}
+.rep .top b{color:var(--navy)}
+.rep .bar{height:9px;border-radius:6px;background:#eef2f8;overflow:hidden}
+.rep .bar i{display:block;height:100%;background:var(--blue);border-radius:6px}
+.hidden{display:none !important}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+ <h1>Release Dashboard &amp; Bug Analysis</h1>
+ <div class="sub">Thunkable iOS &middot; bug inflow/outflow, escape defects, releases &amp; people</div>
+ <div class="tabs" id="tabs">
+  <button class="tab active" data-v="monthly">📅 Monthly Review</button>
+  <button class="tab" data-v="yearly">📈 Yearly Review</button>
+ </div>
+</header>
+
+<!-- ============================ MONTHLY VIEW ============================ -->
+<section id="view-monthly">
+ <div class="toolbar">
+  <label for="monthsel">Month</label>
+  <button class="navbtn" id="mprev" title="Previous month">&lsaquo;</button>
+  <select id="monthsel" autocomplete="off"></select>
+  <button class="navbtn" id="mnext" title="Next month">&rsaquo;</button>
+  <span class="spacer"></span>
+  <span class="hint">Each metric is diffed against the <b>mean of the other 12 months</b> &mdash; like a <code>git diff</code> against the baseline.</span>
+ </div>
+
+ <div class="kpis" id="m_kpis"></div>
+
+ <h2>Month vs. Baseline</h2>
+ <div class="diffstat" id="m_diffstat"></div>
+ <div class="card full">
+  <h3>Deviation from the other-months average</h3>
+  <p class="cap">How far this month sits <b>above (right)</b> or <b>below (left)</b> the average of the other 12 months, as a % of that average. Colour shows whether that&rsquo;s good or bad for the metric: <span class="good">green = better</span>, <span class="bad">red = worse</span>, grey = neutral. Bars are capped at &plusmn;120%; exact figures are in the table below.</p>
+  <div class="chartbox tall"><canvas id="m_cmp"></canvas></div>
+ </div>
+ <div class="tablewrap" style="margin-top:14px"><table class="cmptbl" id="m_cmptbl"><thead><tr>
+  <th>Metric</th><th>This month</th><th>Avg of others</th><th>&Delta;</th><th>vs avg</th>
+ </tr></thead><tbody></tbody></table></div>
+
+ <h2>Where This Month Sits</h2>
+ <div class="card full">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+   <h3 style="margin:0">Metric across all 13 months</h3>
+   <span class="spacer" style="flex:1"></span>
+   <label for="trendsel" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--grey);font-weight:700">Metric</label>
+   <select id="trendsel" autocomplete="off"></select>
+  </div>
+  <p class="cap" style="margin-top:6px">Selected month is highlighted; the dashed amber line is the mean of the other months.</p>
+  <div class="chartbox"><canvas id="m_trend"></canvas></div>
+ </div>
+
+ <h2 id="m_detail_h">Detail &mdash; <span id="m_detail_month"></span></h2>
+ <div class="grid">
+  <div class="card"><h3>Severity Mix</h3><p class="cap">Severity of new tickets this month, with each count compared to its monthly average.</p>
+   <div class="chartbox"><canvas id="m_sev"></canvas></div>
+   <ul class="sevlist" id="m_sevlist"></ul>
+  </div>
+  <div class="card"><h3>Team / Area Breakdown</h3><p class="cap">Which areas the month&rsquo;s tickets landed in.</p><div class="chartbox tall"><canvas id="m_team"></canvas></div></div>
+ </div>
+ <div class="grid" style="margin-top:16px">
+  <div class="card"><h3>Top Reporters</h3><p class="cap">Who filed the most tickets this month.</p><ul class="rep" id="m_rep"></ul></div>
+  <div class="card" id="m_origin_card"><h3>Origin (re-classified)</h3><p class="cap" id="m_origin_cap">Escape/implementation defects vs legacy old bugs vs not-a-defect.</p><div class="chartbox"><canvas id="m_origin"></canvas></div></div>
+ </div>
+</section>
+
+<!-- ============================ YEARLY VIEW ============================ -->
+<section id="view-yearly" class="hidden">
+ <div style="margin-top:14px"><span class="period">May 2025 &rarr; May 2026 &middot; 13-month trend</span></div>
+ <div class="kpis" id="y_kpis"></div>
+
+ <h2>13-Month Trends</h2>
+ <div class="grid">
+  <div class="card"><h3>New vs Fixed Bugs</h3><p class="cap">Monthly inflow (new) vs outflow (fixed). Crossing points = backlog turning points.</p><div class="chartbox"><canvas id="c_nf"></canvas></div></div>
+  <div class="card"><h3>Net Change &amp; Cumulative Backlog</h3><p class="cap">Bars = net (new&minus;fixed)/month. Line = running total since May 2025 (relative).</p><div class="chartbox"><canvas id="c_net"></canvas></div></div>
+  <div class="card"><h3>Incoming Severity Mix</h3><p class="cap">Severity composition of newly reported bugs each month.</p><div class="chartbox"><canvas id="c_sev"></canvas></div></div>
+  <div class="card"><h3>Release Pressure: Hotfixes vs Base Releases</h3><p class="cap">Hotfix volume per month — a proxy for release churn / escaped defects.</p><div class="chartbox"><canvas id="c_hot"></canvas></div></div>
+  <div class="card"><h3>Fix Rate (Fixed &divide; New)</h3><p class="cap">Above 1.0 = backlog shrinking that month; below = growing.</p><div class="chartbox"><canvas id="c_fr"></canvas></div></div>
+  <div class="card"><h3>Resolution SLA Adherence</h3><p class="cap">% of bugs created &amp; resolved within their severity SLA (cohort).</p><div class="chartbox"><canvas id="c_sla"></canvas></div></div>
+ </div>
+
+ <h2>Escape Defects by Introducing Release</h2>
+ <div class="card full"><h3>Escape Defects per Release (all releases since May 2025)</h3>
+  <p class="cap">Each escape defect / implementation defect attributed to the release that introduced it, across every monthly cohort May 2025&rarr;May 2026. 62 total. Amber = Hikari/AI-era releases (v542+). May 2026 was fully re-classified (38 of its 48 bugs are escape/implementation defects, 0 undefined).</p>
+  <div class="chartbox tall"><canvas id="c_esc"></canvas></div>
+  <div class="note">⚠️ <b>Coverage caveat:</b> May 2026 is fully root-cause-classified. May 2025&ndash;April 2026 attribution relies on RCA evidence recorded in the tickets (PRs, "introduced in vNNN", regression notes) — well documented for the Hikari era but sparse in mid-2025, so early-release counts still understate the true number.</div>
+  <div class="relbar"><span class="lbl">Release highlights &mdash; click a bar above, or choose a release:</span><select id="relsel" autocomplete="off"></select></div>
+  <div id="relpanel" class="relpanel"></div>
+ </div>
+
+ <h2>People</h2>
+ <div class="grid">
+  <div class="card"><h3>Bugs Fixed per Developer</h3><p class="cap">Bugs completed in the bugs project, May 2025&ndash;May 2026, by assigned developer (Asana; 274 total).</p><div class="chartbox tall"><canvas id="c_fixdev"></canvas></div></div>
+  <div class="card"><h3>Bugs Created per Reporter</h3><p class="cap">Tickets created May 2025&ndash;May 2026, by creator (314 total).</p><div class="chartbox tall"><canvas id="c_creator"></canvas></div></div>
+ </div>
+
+ <h2>Monthly Data</h2>
+ <div class="tablewrap"><table id="tbl"><thead><tr>
+ <th data-k="month">Month</th><th data-k="new">New</th><th data-k="fixed">Fixed</th><th data-k="net">Net</th><th data-k="cum_backlog">Cum.*</th><th data-k="fix_rate">Fix Rate</th><th data-k="p0p1">P0+P1</th><th data-k="bases">Base Rel.</th><th data-k="hotfixes">Hotfixes</th><th data-k="avg_res_bdays">Avg Res (bd)</th><th data-k="sla_adherence">SLA %</th>
+ </tr></thead><tbody></tbody><tfoot></tfoot></table></div>
+ <p class="cap" style="margin-top:6px">*Cumulative net is relative to a May-2025 baseline of 0 — a running tally of net inflow, not absolute open-bug count. Click any row to open it in the Monthly view.</p>
+
+ <h2>Key Takeaways</h2>
+ <ul class="insights">
+ <li><b>May 2026 re-classified: 79% are escape / implementation defects.</b> 38 of 48 new bugs trace to a release (0 left "undefined"); the rest are 4 legacy old bugs and 6 non-defects (1 external, 4 feature/analytics requests, 1 duplicate).</li>
+ <li><b>Escape defects concentrate in the Hikari/AI release wave.</b> Across all releases since May 2025 (62 total), v542 (9), v549 (8), v545 &amp; v552 (6 each), and v548 &amp; v551 (5 each) lead — the AI app-generation path is where regressions accumulate.</li>
+ <li><b>One developer carries most fixes.</b> Mihail Duchev resolved 114 of 274 bugs (42%), well ahead of Paulo Chaves and Ting Chou (30 each) — a bus-factor risk worth watching.</li>
+ <li><b>Bug reporting is QA-driven.</b> Ioannis Roungeris (136) and Roberto Minhoto (94) filed 73% of all 314 tickets.</li>
+ <li><b>Hotfix volume exploded in 2026</b> (35 Mar, 29 Apr, 19 May vs 2&ndash;6 in mid-2025); resolution speed improved sharply (40&ndash;70 business days in 2025 &rarr; ~6&ndash;8 in 2026).</li>
+ </ul>
+ <p class="foot">Sources: monthly Notion conclusions (new/fixed), Bugs Review Excel workbooks (severity), prod git tags (releases/hotfixes), and Asana (escape RCA notes, completed-bug assignees, creators). May 2026 escape attribution is from a full per-ticket re-classification; May 2025&ndash;April 2026 is evidence-based and under-counts early releases. Fixed-per-developer reflects Asana completions in-window (274), slightly above the summed monthly report figure (258) due to boundary timing.</p>
+</section>
+
+<p class="foot">Single self-contained file &middot; data embedded &middot; switch tabs above for the single-month diff or the full-year trend.</p>
+</div>
+<script>
+const D={"labels": ["May 25", "Jun 25", "Jul 25", "Aug 25", "Sep 25", "Oct 25", "Nov 25", "Dec 25", "Jan 26", "Feb 26", "Mar 26", "Apr 26", "May 26"], "new": [25, 27, 25, 11, 26, 17, 5, 26, 19, 5, 28, 52, 48], "fixed": [15, 11, 15, 9, 13, 12, 5, 14, 59, 16, 13, 39, 37], "net": [10, 16, 10, 2, 13, 5, 0, 12, -40, -11, 15, 13, 11], "cum": [10, 26, 36, 38, 51, 56, 56, 68, 28, 17, 32, 45, 56], "fr": [0.6, 0.41, 0.6, 0.82, 0.5, 0.71, 1.0, 0.54, 3.11, 3.2, 0.46, 0.75, 0.77], "p0": [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0], "p1": [2, 2, 2, 4, 5, 0, 2, 7, 4, 3, 7, 5, 4], "p2": [14, 13, 17, 2, 12, 10, 1, 16, 13, 1, 9, 28, 27], "p3": [7, 12, 4, 4, 9, 7, 2, 2, 0, 1, 11, 15, 12], "un": [2, 0, 2, 0, 0, 0, 0, 1, 2, 0, 1, 4, 5], "bases": [6, 6, 8, 4, 4, 4, 3, 4, 8, 5, 5, 4, 5], "hot": [2, 4, 6, 3, 5, 6, 1, 6, 3, 14, 35, 29, 19], "sla": [47, 100, 61, 71, null, 75, 33, null, 100, 100, 100, 100, 97], "avg": [73.1, 3.1, 43.5, 25.7, null, 23.5, 19.0, null, 5.6, 7.2, 5.8, 6.1, 8.4], "origin": [38, 4, 6], "mayff": {"P0": 0, "P1": 4, "P2": 27, "P3": 12, "Undefined": 5}, "esc_rel": ["v506", "v510", "v517", "v530", "v531", "v540", "v542", "v543", "v545", "v546", "v547", "v548", "v549", "v550", "v551", "v552", "v553", "v555", "v556"], "esc_val": [1, 3, 1, 3, 1, 1, 9, 2, 6, 1, 1, 5, 8, 4, 5, 6, 2, 2, 1], "esc_total": 62, "esc_hist": 24, "esc_may": 38, "fixdev_lab": ["Mihail Duchev", "Paulo Chaves", "Ting Chou", "Unassigned", "Petar Petrov", "Andres Mechali", "Bogdan Vidican", "Janhavi Dahihande", "Roberto Minhoto", "Others"], "fixdev_val": [114, 30, 30, 22, 21, 19, 18, 8, 4, 8], "fixdev_total": 274, "crt_lab": ["Ioannis Roungeris", "Roberto Minhoto", "Eduardo de Paula", "Brian Liu", "O.M. Miles", "Paulo Chaves", "Gunnar Eagleson", "Matt Conroy", "Christina Wong", "Others"], "crt_val": [136, 94, 27, 16, 14, 6, 4, 3, 2, 12], "crt_total": 314, "rows": [{"month": "May 2025", "short": "May 25", "new": 25, "fixed": 15, "net": 10, "cum_backlog": 10, "fix_rate": 0.6, "severity": {"P0": 0, "P1": 2, "P2": 14, "P3": 7, "Undefined": 2}, "p0": 0, "p1": 2, "p0p1": 2, "teams": {"Unassigned": 8, "Infra": 3, "MBL": 11, "BuilderXP": 1, "Lightning": 2}, "top_reporters": [["Roberto Minhoto", 11], ["Ioannis Roungeris", 9], ["Eduardo de Paula", 2]], "bases": 6, "hotfixes": 2, "cohort_resolved": 17, "avg_res_bdays": 73.1, "median_res_bdays": 47, "sla_adherence": 47}, {"month": "June 2025", "short": "Jun 25", "new": 27, "fixed": 11, "net": 16, "cum_backlog": 26, "fix_rate": 0.41, "severity": {"P0": 0, "P1": 2, "P2": 13, "P3": 12, "Undefined": 0}, "p0": 0, "p1": 2, "p0p1": 2, "teams": {"Lightning": 4, "Infra": 6, "Unassigned": 13, "MBL": 4}, "top_reporters": [["Roberto Minhoto", 15], ["Ioannis Roungeris", 6], ["Eduardo de Paula", 5]], "bases": 6, "hotfixes": 4, "cohort_resolved": 9, "avg_res_bdays": 3.1, "median_res_bdays": 3, "sla_adherence": 100}, {"month": "July 2025", "short": "Jul 25", "new": 25, "fixed": 15, "net": 10, "cum_backlog": 36, "fix_rate": 0.6, "severity": {"P0": 0, "P1": 2, "P2": 17, "P3": 4, "Undefined": 2}, "p0": 0, "p1": 2, "p0p1": 2, "teams": {"MBL": 6, "Infra": 8, "Lightning": 3, "Unassigned": 8}, "top_reporters": [["Ioannis Roungeris", 16], ["Eduardo de Paula", 4], ["Roberto Minhoto", 3]], "bases": 8, "hotfixes": 6, "cohort_resolved": 18, "avg_res_bdays": 43.5, "median_res_bdays": 18, "sla_adherence": 61}, {"month": "August 2025", "short": "Aug 25", "new": 11, "fixed": 9, "net": 2, "cum_backlog": 38, "fix_rate": 0.82, "severity": {"P0": 1, "P1": 4, "P2": 2, "P3": 4, "Undefined": 0}, "p0": 1, "p1": 4, "p0p1": 5, "teams": {"Unassigned": 6, "BuilderXP": 3, "MBL": 1, "Lightning": 1}, "top_reporters": [["Roberto Minhoto", 3], ["Matt Conroy", 2], ["Brian Liu", 2]], "bases": 4, "hotfixes": 3, "cohort_resolved": 7, "avg_res_bdays": 25.7, "median_res_bdays": 8, "sla_adherence": 71}, {"month": "September 2025", "short": "Sep 25", "new": 26, "fixed": 13, "net": 13, "cum_backlog": 51, "fix_rate": 0.5, "severity": {"P0": 0, "P1": 5, "P2": 12, "P3": 9, "Undefined": 0}, "p0": 0, "p1": 5, "p0p1": 5, "teams": {"Lightning": 2, "MBL": 10, "Unassigned": 11, "BuilderXP": 3}, "top_reporters": [["Ioannis Roungeris", 12], ["Roberto Minhoto", 5], ["Brian Liu", 5]], "bases": 4, "hotfixes": 5, "cohort_resolved": 0, "avg_res_bdays": null, "median_res_bdays": null, "sla_adherence": null}, {"month": "October 2025", "short": "Oct 25", "new": 17, "fixed": 12, "net": 5, "cum_backlog": 56, "fix_rate": 0.71, "severity": {"P0": 0, "P1": 0, "P2": 10, "P3": 7, "Undefined": 0}, "p0": 0, "p1": 0, "p0p1": 0, "teams": {"Unassigned": 6, "MBL": 7, "BuilderXP": 1, "QA": 3}, "top_reporters": [["Ioannis Roungeris", 12], ["Roberto Minhoto", 2], ["Gunnar Eagleson", 2]], "bases": 4, "hotfixes": 6, "cohort_resolved": 8, "avg_res_bdays": 23.5, "median_res_bdays": 10, "sla_adherence": 75}, {"month": "November 2025", "short": "Nov 25", "new": 5, "fixed": 5, "net": 0, "cum_backlog": 56, "fix_rate": 1.0, "severity": {"P0": 0, "P1": 2, "P2": 1, "P3": 2, "Undefined": 0}, "p0": 0, "p1": 2, "p0p1": 2, "teams": {"Infra": 2, "Unassigned": 1, "QA": 1, "BuilderXP": 1}, "top_reporters": [["Ioannis Roungeris", 3], ["Brian Liu", 1], ["Roberto Minhoto", 1]], "bases": 3, "hotfixes": 1, "cohort_resolved": 3, "avg_res_bdays": 19.0, "median_res_bdays": 21, "sla_adherence": 33}, {"month": "December 2025", "short": "Dec 25", "new": 26, "fixed": 14, "net": 12, "cum_backlog": 68, "fix_rate": 0.54, "severity": {"P0": 0, "P1": 7, "P2": 16, "P3": 2, "Undefined": 1}, "p0": 0, "p1": 7, "p0p1": 7, "teams": {"Lightning": 5, "MBL": 8, "Infra": 2, "Unassigned": 8, "BuilderXP": 3}, "top_reporters": [["Ioannis Roungeris", 23], ["Roberto Minhoto", 1], ["Gunnar Eagleson", 1]], "bases": 4, "hotfixes": 6, "cohort_resolved": 0, "avg_res_bdays": null, "median_res_bdays": null, "sla_adherence": null}, {"month": "January 2026", "short": "Jan 26", "new": 19, "fixed": 59, "net": -40, "cum_backlog": 28, "fix_rate": 3.11, "severity": {"P0": 0, "P1": 4, "P2": 13, "P3": 0, "Undefined": 2}, "p0": 0, "p1": 4, "p0p1": 4, "teams": {"MBL": 8, "Infra": 4, "Unassigned": 6, "BuilderXP": 1}, "top_reporters": [["Ioannis Roungeris", 13], ["Eduardo de Paula", 4], ["Roberto Minhoto", 1]], "bases": 8, "hotfixes": 3, "cohort_resolved": 9, "avg_res_bdays": 5.6, "median_res_bdays": 6, "sla_adherence": 100}, {"month": "February 2026", "short": "Feb 26", "new": 5, "fixed": 16, "net": -11, "cum_backlog": 17, "fix_rate": 3.2, "severity": {"P0": 0, "P1": 3, "P2": 1, "P3": 1, "Undefined": 0}, "p0": 0, "p1": 3, "p0p1": 3, "teams": {"Lightning": 2, "BuilderXP": 1, "Infra": 1, "MBL": 1}, "top_reporters": [["Ioannis Roungeris", 4], ["Roberto Minhoto", 1]], "bases": 5, "hotfixes": 14, "cohort_resolved": 4, "avg_res_bdays": 7.2, "median_res_bdays": 7, "sla_adherence": 100}, {"month": "March 2026", "short": "Mar 26", "new": 28, "fixed": 13, "net": 15, "cum_backlog": 32, "fix_rate": 0.46, "severity": {"P0": 0, "P1": 7, "P2": 9, "P3": 11, "Undefined": 1}, "p0": 0, "p1": 7, "p0p1": 7, "teams": {"Infra": 4, "MBL": 13, "Not a Bug": 4, "Unassigned": 4, "Lightning": 2, "QA": 1}, "top_reporters": [["Roberto Minhoto", 13], ["Ioannis Roungeris", 11], ["Brian Liu", 2]], "bases": 5, "hotfixes": 35, "cohort_resolved": 16, "avg_res_bdays": 5.8, "median_res_bdays": 4, "sla_adherence": 100}, {"month": "April 2026", "short": "Apr 26", "new": 52, "fixed": 39, "net": 13, "cum_backlog": 45, "fix_rate": 0.75, "severity": {"P0": 0, "P1": 5, "P2": 28, "P3": 15, "Undefined": 4}, "p0": 0, "p1": 5, "p0p1": 5, "teams": {"MBL": 21, "Lightning": 16, "BuilderXP": 1, "Unassigned": 9, "QA": 1, "Infra": 3, "D&A": 1}, "top_reporters": [["Roberto Minhoto", 22], ["Ioannis Roungeris", 11], ["Eduardo de Paula", 6]], "bases": 4, "hotfixes": 29, "cohort_resolved": 36, "avg_res_bdays": 6.1, "median_res_bdays": 5, "sla_adherence": 100}, {"month": "May 2026", "short": "May 26", "new": 48, "fixed": 37, "net": 11, "cum_backlog": 56, "fix_rate": 0.77, "severity": {"P0": 0, "P1": 4, "P2": 27, "P3": 12, "Undefined": 5}, "p0": 0, "p1": 4, "p0p1": 4, "teams": {"Lightning": 10, "MBL": 15, "Infra": 19, "Unassigned": 1, "Other": 2, "D&A": 1}, "top_reporters": [["Roberto Minhoto", 16], ["Ioannis Roungeris", 14], ["O.M. Miles", 5]], "bases": 5, "hotfixes": 19, "cohort_resolved": 32, "avg_res_bdays": 8.4, "median_res_bdays": 8, "sla_adherence": 97, "origin": [38, 4, 6]}]};
+const RELHL={"v506":{"era":"pre","ship":["New AI Pricing Plan - Stage 1 (Introduction of Accelerator Plan","Points system for AI Features)"],"def":[],"cnt":1},"v510":{"era":"pre","ship":["React-dnd upgrade","React-router upgrade"],"def":[],"cnt":3},"v517":{"era":"pre","ship":["[UI/UX] Token bar adjustment","Bring back inline tools in new design","DataViewer blocks Generation"],"def":[],"cnt":1},"v530":{"era":"pre","ship":["Edge to Edge implementation","Add API components to AI Project generation"],"def":[{"s":"P3","t":"Bottom navigator background color does not fill full safe area height on mobile","r":"Escape defect from v530 (Edge-to-Edge, commit ff20290782) — explicit tab-bar height broke safe-area fill."}],"cnt":3},"v531":{"era":"pre","ship":["Expo 54"],"def":[],"cnt":1},"v540":{"era":"pre","ship":["Merging of Hikari to develop","[Hikari] Preview versions directly from chat","[Hikari] Apply button when discussion suggests an action"],"def":[{"s":"P2","t":"Version preview shows screens from current version instead of previewed version","r":"Escape defect from v540 (version preview) — reducer builds preview from the current screen list."}],"cnt":1},"v542":{"era":"hikari","ship":["Hikari Launch","[Hikari] Product Tour","Allow existing x.thunkable users to try out Hikari"],"def":[{"s":"P2","t":"[HOTFIX] Users get stuck on the onboarding steps because there is no “Next” button and no option to skip steps","r":"Escape defect from v542 (Product Tour) — missing advance/skip controls on some steps."},{"s":"P2","t":"On a specific Hikari project, AI always returns \"Your request is invalid. Please review it and try again.\"","r":"Escape defect from v542 (prompt-injection validator) — false positive on legitimate project content."},{"s":"P3","t":"AI imports forbidden AsyncStorage module, crashing all screens","r":"Escape defect from v542 (Hikari codegen) — code validator misses forbidden imports."},{"s":"P3","t":"Hikari chat input retains text when navigating between projects","r":"Escape defect from v542 (Hikari chat) — persistent navbar chat state never resets on project switch."}],"cnt":9},"v543":{"era":"hikari","ship":["Figma removed","Convert Companion to TS","Hikari Native - Enable AI-generated code to access device capabilities (Camera)","Color Theme"],"def":[{"s":"P2","t":"Hikari: captured photo renders as a white square on Android","r":"Escape defect from v543 (Hikari camera) — generation prompt produced invalid image rendering; not a platform regression."}],"cnt":2},"v545":{"era":"hikari","ship":["[Hikari] Implement local editing","Add suggested prompts in AI input","Implement structured follow-up prompts (Guided agent questions)","Improving Account Deletion Process","Expo 55"],"def":[{"s":"P3","t":"Hikari \"Try next\" suggestions can recommend features that already exist in the app","r":"Escape defect from v545 (suggested prompts) — suggestions built without checking generated code."}],"cnt":6},"v546":{"era":"hikari","ship":["[Hikari] Add DnD to Hikari","Share integration","Sensors integration","Splash Screen & Loading State Issues Across Companion and Built Apps","UI updates pre-Hikari website Launch"],"def":[],"cnt":1},"v547":{"era":"hikari","ship":["Convert DataSourceManager to TS","Apple certificate & profile automation","Apply Hikari style changes immediately on edit"],"def":[{"s":"P2","t":"[HOTFIX] Publish iOS Automated Provisioning method fails","r":"Escape defect from v547 (Apple provisioning automation) — ASC gate failure; hotfixed in v554-2."}],"cnt":1},"v548":{"era":"hikari","ship":["Add Stack Navigator support for multi-screen navigation","Add planning mode","Compact history for longer sessions"],"def":[{"s":"P2","t":"[HOTFIX] Plan generation failing on complex prompts","r":"Escape defect from v548 (planning mode) — generatePlan failed on complex prompts with no recovery path."},{"s":"P3","t":"Hikari pushed Stack screens overlap Android status bar","r":"Escape defect from v548 (Stack Navigator) — Hikari runtime lacks a SafeAreaView wrapper on Android."}],"cnt":5},"v549":{"era":"hikari","ship":["[UI/UX] When an app is broken and the user can choose how to fix it","API keys support","Enable the ability to update text from style panel","Improve project generation loading experience (Educational modal carousel)","File share integration"],"def":[{"s":"P2","t":"Hikari generates createNativeStackNavigator and Auto-fix opens image picker instead of fixing","r":"Escape defect from v549 — auto-fix collides with image-intent detection; LLM ignores nav prompt rules."},{"s":"P2","t":"Optional API keys are required to Download/Publish AI projects","r":"Escape defect from v549 (API keys support) — build gate treats optional keys as required."},{"s":"P2","t":"Hikari Android built app crashes on Map screen","r":"Escape defect from v549 (App Secrets) — Android build job ignores the appSecrets Maps key."},{"s":"P3","t":"Auto-fix with AI banner displayed during version preview","r":"Escape defect from v549 (Fix-with-AI card) — card not suppressed in preview mode."},{"s":"P3","t":"Error banner blinks briefly after Auto Fix completes","r":"Escape defect from v549 (Fix-with-AI card) — stale error state re-renders before clearing."}],"cnt":8},"v550":{"era":"hikari","ship":["Plan mode: I would like to know what it is before I use it","Upgrade to Sonnet 4.6","Improve chat history UX (Clear chat + Inline history)"],"def":[],"cnt":4},"v551":{"era":"hikari","ship":["Feature Discovery - Discuss Mode","Add maps integration for Hikari apps","Sample apps"],"def":[{"s":"P2","t":"[HOTFIX] Upsell not show when hitting token limitation in discuss mode","r":"Escape defect from v551 (Discuss Mode) — token-limit path missed the upsell handler."},{"s":"P2","t":"Hikari app with a map crashes on Android and shows Apple Maps on iOS","r":"Escape defect from v551 (Hikari maps) — build servers read X settings keys, never Hikari appSecrets."}],"cnt":5},"v552":{"era":"hikari","ship":["Mongoose 9 upgrade","Bluetooth Integration","Coalesce Hikari local edits within a 5-minute window","Add undo to work in properties panel","Audio integration","Speech integration","Add Drawer Navigator support for Hikari apps"],"def":[{"s":"P1","t":"Anthropic API ETIMEDOUT leaves app stuck with \"AI is updating...\" overlay","r":"Escape defect from v552 — PR #16574 dynamic prompts caused timeout spike; no stream-error recovery."},{"s":"P2","t":"Intermittent issue: Screens render completely white after project generation or modification","r":"Escape defect from v552 — generation/render race, caught in v552 regression window."},{"s":"P2","t":"Apps generated with Drawer Navigator sometimes show duplicated screens","r":"Escape defect from v552 (Drawer Navigator support) — wrapper routing duplicated screens."},{"s":"P2","t":"Screen selector missing on app generated with drawer navigator","r":"Escape defect from v552 (Drawer Navigator support)."},{"s":"Undefined","t":"Duplicate project with \"setup new database\" option fails in production","r":"Escape defect from v552 (Mongoose 9 upgrade) — schema diff rejects Mongoose 9 internal keys."}],"cnt":6},"v553":{"era":"hikari","ship":["[Hikari] Project-limit counting / platform-eligibility changes (PR #16524)"],"def":[{"s":"P3","t":"Hikari upsell wrongly shown to users who signed up on X","r":"Escape defect from v553 (PR #16524 project-limit counting) — stale platform heuristic kept."}],"cnt":2},"v555":{"era":"hikari","ship":["Video integration for AI projects","Drawer Navigator routing fix (#16678)"],"def":[{"s":"P2","t":"Videos don't load on AI projects","r":"Escape defect from v555 (Video integration)."},{"s":"P2","t":"Edit multi-screen view renders the same screen in every tile","r":"Escape defect from v555 (#16678 drawer-nav fix) — wrapper-routing heuristics regression."}],"cnt":2},"v556":{"era":"hikari","ship":["Thunkable Cloud V1","Supabase auth support for Hikari apps"],"def":[{"s":"P3","t":"AI generates invalid Stack.Navigator children on Supabase-auth Hikari apps","r":"Escape defect from v556 (Thunkable Cloud V1) — auth-flow codegen emits invalid navigator children."}],"cnt":1}};
+const C={navy:'#1F3864',blue:'#2E5496',blue2:'#4E79A7',lblue:'#9DC3E6',red:'#E15759',green:'#59A14F',amber:'#F1A33C',purple:'#B07AA1',grey:'#8895a7',p0:'#C00000',p1:'#ED7D31',p2:'#FFC000',p3:'#70AD47',un:'#A6A6A6'};
+Chart.defaults.font.family='-apple-system,Segoe UI,Arial,sans-serif';Chart.defaults.font.size=11;Chart.defaults.color='#5a6b7d';
+const baseOpts=(extra={})=>Object.assign({responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:12,boxHeight:12,usePointStyle:true,padding:12}}}},extra);
+
+/* ---------- metric definitions (pol: +1 higher is better, -1 higher is worse, 0 neutral) ---------- */
+const METRICS=[
+ {k:'new',        label:'New bugs',                    pol:-1, dec:0},
+ {k:'fixed',      label:'Fixed bugs',                  pol:1,  dec:0},
+ {k:'net',        label:'Net change (new − fixed)',    pol:-1, dec:0, signed:true},
+ {k:'cum_backlog',label:'Cumulative backlog (rel.)',   pol:-1, dec:0},
+ {k:'fix_rate',   label:'Fix rate (fixed ÷ new)',      pol:1,  dec:2},
+ {k:'p0p1',       label:'Critical inflow (P0 + P1)',   pol:-1, dec:0},
+ {k:'hotfixes',   label:'Hotfixes',                    pol:-1, dec:0},
+ {k:'bases',      label:'Base releases',               pol:0,  dec:0},
+ {k:'avg_res_bdays',label:'Avg resolution (biz days)', pol:-1, dec:1},
+ {k:'sla_adherence',label:'SLA adherence',             pol:1,  dec:0, pct:true},
+];
+const SEV=[['P0',C.p0],['P1',C.p1],['P2',C.p2],['P3',C.p3],['Undefined',C.un]];
+
+function fmt(v,dec,signed,pct){
+ if(v==null||isNaN(v))return '—';
+ let s = dec? (Math.round(v*Math.pow(10,dec))/Math.pow(10,dec)).toFixed(dec) : Math.round(v).toString();
+ if(signed&&v>0)s='+'+s;
+ if(pct)s+='%';
+ return s;
+}
+function meanOthers(key,idx){
+ const a=[];
+ D.rows.forEach((r,i)=>{ if(i!==idx){const v=r[key]; if(v!=null&&!isNaN(v))a.push(v);} });
+ return a.length? a.reduce((x,y)=>x+y,0)/a.length : null;
+}
+function meanOthersSev(sev,idx){
+ const a=[]; D.rows.forEach((r,i)=>{ if(i!==idx)a.push((r.severity[sev]||0)); });
+ return a.length? a.reduce((x,y)=>x+y,0)/a.length : 0;
+}
+/* compute diff for a metric at a month index */
+function diff(idx,m){
+ const val=D.rows[idx][m.k], mean=meanOthers(m.k,idx);
+ const out={val,mean,valStr:fmt(val,m.dec,m.signed,m.pct),meanStr:fmt(mean,m.dec,false,m.pct),fav:'neu',gut:'•',arrow:'',deltaStr:'',cls:'neu'};
+ if(val==null||mean==null)return out;
+ const delta=val-mean, pct=mean!==0? delta/Math.abs(mean)*100 : null;
+ if(Math.abs(delta)<1e-9){out.arrow='±';out.deltaStr='±0';return out;}
+ const dir=delta>0?1:-1;
+ out.arrow=delta>0?'▲':'▼';
+ if(m.pol===0){out.fav='neu';out.gut='•';out.cls='neu';}
+ else if(m.pol*dir>0){out.fav='good';out.gut='+';out.cls='add';}
+ else{out.fav='bad';out.gut='−';out.cls='del';}
+ out.deltaStr=(delta>0?'+':'')+fmt(delta,m.dec)+(pct!=null? '  ('+(pct>0?'+':'')+pct.toFixed(0)+'%)':'');
+ return out;
+}
+
+/* =================== MONTHLY VIEW =================== */
+let monthIdx=D.rows.length-1, trendMetric='new';
+let mTrendChart=null,mSevChart=null,mTeamChart=null,mOriginChart=null,mCmpChart=null;
+const CAP=120;
+
+const monthsel=document.getElementById('monthsel');
+const LATEST=D.rows.length-1;
+monthsel.innerHTML=D.rows.map((r,i)=>`<option value="${i}"${i===LATEST?' selected':''}>${r.month}</option>`).join('');
+const trendsel=document.getElementById('trendsel');
+trendsel.innerHTML=METRICS.map(m=>`<option value="${m.k}"${m.k==='new'?' selected':''}>${m.label}</option>`).join('');
+
+function renderKpisMonthly(idx){
+ const keys=['new','fixed','net','hotfixes','p0p1','sla_adherence'];
+ const cards=keys.map(k=>{
+  const m=METRICS.find(x=>x.k===k), d=diff(idx,m);
+  const cls=d.fav==='good'?'good':d.fav==='bad'?'bad':'neu2';
+  const sub=d.val==null?'no data':`${d.arrow} ${d.deltaStr} vs avg`;
+  return `<div class="kpi"><div class="label">${m.label}</div><div class="val">${d.valStr}</div><div class="delta ${cls}">${sub}</div></div>`;
+ });
+ document.getElementById('m_kpis').innerHTML=cards.join('');
+}
+function renderCompare(idx){
+ let better=0,worse=0,neutral=0;
+ const labels=[],bars=[],colors=[],pcts=[],tbody=[];
+ METRICS.forEach(m=>{
+  const d=diff(idx,m);
+  if(d.fav==='good')better++; else if(d.fav==='bad')worse++; else neutral++;
+  const pct=(d.val!=null&&d.mean!=null&&d.mean!==0)? (d.val-d.mean)/Math.abs(d.mean)*100 : null;
+  bars.push(pct==null?0:Math.max(-CAP,Math.min(CAP,pct)));
+  pcts.push(pct);
+  labels.push(m.label);
+  colors.push(d.val==null?'#d7dde6':(d.fav==='good'?C.green:d.fav==='bad'?C.red:C.grey));
+  const delta=(d.val!=null&&d.mean!=null)? d.val-d.mean : null;
+  const cls=d.fav==='good'?'good':d.fav==='bad'?'bad':'neu2';
+  const deltaCell=delta==null?'&mdash;':`${d.arrow} ${fmt(delta,m.dec,true)}`;
+  const pctCell=pct==null?'&mdash;':`${(pct>0?'+':'')}${pct.toFixed(0)}%`;
+  tbody.push(`<tr><td>${m.label}</td><td>${d.valStr}</td><td>${d.meanStr}</td><td class="${cls}">${deltaCell}</td><td class="${cls}">${pctCell}</td></tr>`);
+ });
+ document.querySelector('#m_cmptbl tbody').innerHTML=tbody.join('');
+ document.getElementById('m_diffstat').innerHTML=
+  `<span class="chip"><span class="sq" style="background:var(--green)"></span><span class="good">${better} better</span></span>`+
+  `<span class="chip"><span class="sq" style="background:var(--red)"></span><span class="bad">${worse} worse</span></span>`+
+  `<span class="chip"><span class="sq" style="background:var(--grey)"></span><span class="neu2">${neutral} neutral</span></span>`+
+  `<span style="color:var(--grey);font-weight:500">vs the other 12 months&rsquo; average</span>`;
+ if(mCmpChart)mCmpChart.destroy();
+ mCmpChart=new Chart(document.getElementById('m_cmp'),{type:'bar',
+  data:{labels:labels,datasets:[{data:bars,backgroundColor:colors,borderRadius:3,barPercentage:.78}]},
+  options:baseOpts({indexAxis:'y',
+   plugins:{legend:{display:false},tooltip:{callbacks:{
+     title:items=>METRICS[items[0].dataIndex].label,
+     label:item=>{const i=item.dataIndex,m=METRICS[i],d=diff(idx,m),p=pcts[i];
+       return [`This month: ${d.valStr}`,`Avg of others: ${d.meanStr}`,(p==null?'no comparison':(p>0?'+':'')+p.toFixed(0)+'% vs avg'+(Math.abs(p)>CAP?' (bar capped)':''))];}
+   }}},
+   scales:{x:{min:-CAP,max:CAP,
+     title:{display:true,text:'% difference vs the other-months average  (0 = same as average)'},
+     ticks:{callback:v=>v+'%'},
+     grid:{color:c=>c.tick.value===0?'#8895a7':'#eef1f6',lineWidth:c=>c.tick.value===0?2:1}},
+    y:{ticks:{autoSkip:false,font:{size:11}}}}
+  })});
+}
+function renderTrend(idx){
+ const m=METRICS.find(x=>x.k===trendMetric);
+ const data=D.rows.map(r=>r[trendMetric]);
+ const mean=meanOthers(trendMetric,idx);
+ const colors=D.rows.map((r,i)=> i===idx? C.navy : C.lblue);
+ if(mTrendChart)mTrendChart.destroy();
+ mTrendChart=new Chart(document.getElementById('m_trend'),{
+  data:{labels:D.labels,datasets:[
+   {type:'bar',label:m.label,data:data,backgroundColor:colors,borderRadius:3,order:2},
+   {type:'line',label:'avg of other months',data:D.labels.map(()=>mean),borderColor:C.amber,borderDash:[6,4],borderWidth:1.6,pointRadius:0,order:1}
+  ]},
+  options:baseOpts({plugins:{legend:{labels:{filter:i=>i.text!==m.label}}},scales:{y:{title:{display:true,text:m.label},ticks:{precision:m.dec?undefined:0}}}})
+ });
+}
+function renderSev(idx){
+ const r=D.rows[idx];
+ if(mSevChart)mSevChart.destroy();
+ mSevChart=new Chart(document.getElementById('m_sev'),{type:'doughnut',
+  data:{labels:SEV.map(s=>s[0]),datasets:[{data:SEV.map(s=>r.severity[s[0]]||0),backgroundColor:SEV.map(s=>s[1])}]},
+  options:baseOpts({cutout:'58%',plugins:{legend:{position:'bottom'}}})});
+ document.getElementById('m_sevlist').innerHTML=SEV.map(s=>{
+  const ct=r.severity[s[0]]||0, mn=meanOthersSev(s[0],idx), d=ct-mn;
+  const cls=Math.abs(d)<.05?'neu2':(d>0?'bad':'good'); // more bugs of a severity = worse
+  const arrow=Math.abs(d)<.05?'±':(d>0?'▲':'▼');
+  return `<li><span class="dot" style="background:${s[1]}"></span><span class="nm">${s[0]}</span><span class="ct">${ct}</span><span class="vs ${cls}">${arrow} ${(d>0?'+':'')+fmt(d,1)} vs avg ${fmt(mn,1)}</span></li>`;
+ }).join('');
+}
+function renderTeam(idx){
+ const r=D.rows[idx];
+ const ent=Object.entries(r.teams).sort((a,b)=>b[1]-a[1]);
+ const pal=[C.blue,C.blue2,C.lblue,C.purple,C.amber,C.green,C.grey,C.navy];
+ if(mTeamChart)mTeamChart.destroy();
+ mTeamChart=new Chart(document.getElementById('m_team'),{type:'bar',
+  data:{labels:ent.map(e=>e[0]),datasets:[{label:'Tickets',data:ent.map(e=>e[1]),backgroundColor:ent.map((e,i)=>pal[i%pal.length])}]},
+  options:baseOpts({indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{precision:0}}}})});
+}
+function renderRep(idx){
+ const r=D.rows[idx], reps=r.top_reporters||[];
+ const max=reps.length?Math.max(...reps.map(x=>x[1])):1;
+ document.getElementById('m_rep').innerHTML=reps.length? reps.map(x=>
+  `<li><div class="top"><span>${x[0]}</span><b>${x[1]}</b></div><div class="bar"><i style="width:${Math.max(6,x[1]/max*100)}%"></i></div></li>`
+ ).join('') : '<li style="color:var(--grey)">No reporter data for this month.</li>';
+}
+function renderOrigin(idx){
+ const r=D.rows[idx], card=document.getElementById('m_origin_card');
+ if(!r.origin){card.classList.add('hidden'); if(mOriginChart){mOriginChart.destroy();mOriginChart=null;} return;}
+ card.classList.remove('hidden');
+ document.getElementById('m_origin_cap').textContent=`Of ${r.new} new tickets: escape/implementation defects vs legacy old bugs vs not-a-defect (external / feature request / duplicate). Only available for fully re-classified months.`;
+ if(mOriginChart)mOriginChart.destroy();
+ mOriginChart=new Chart(document.getElementById('m_origin'),{type:'doughnut',
+  data:{labels:['Escape / impl defect','Legacy / old bug','Not a defect (ext/req/dup)'],datasets:[{data:r.origin,backgroundColor:[C.red,C.amber,C.grey]}]},
+  options:baseOpts({cutout:'58%',plugins:{legend:{position:'bottom'}}})});
+}
+function renderMonthly(){
+ monthsel.value=monthIdx;
+ document.getElementById('mprev').disabled=(monthIdx<=0);
+ document.getElementById('mnext').disabled=(monthIdx>=D.rows.length-1);
+ document.getElementById('m_detail_month').textContent=D.rows[monthIdx].month;
+ renderKpisMonthly(monthIdx);
+ renderCompare(monthIdx);
+ renderTrend(monthIdx);
+ renderSev(monthIdx);
+ renderTeam(monthIdx);
+ renderRep(monthIdx);
+ renderOrigin(monthIdx);
+}
+monthsel.onchange=e=>{monthIdx=+e.target.value;renderMonthly();};
+document.getElementById('mprev').onclick=()=>{if(monthIdx>0){monthIdx--;renderMonthly();}};
+document.getElementById('mnext').onclick=()=>{if(monthIdx<D.rows.length-1){monthIdx++;renderMonthly();}};
+trendsel.onchange=e=>{trendMetric=e.target.value;renderTrend(monthIdx);};
+
+/* =================== YEARLY VIEW =================== */
+let yearlyBuilt=false;
+function buildYearly(){
+ if(yearlyBuilt)return; yearlyBuilt=true;
+ const last=D.rows[D.rows.length-1], prev=D.rows[D.rows.length-2];
+ function delta(cur,pr,inv){if(pr==null)return['',''];const d=cur-pr;if(d===0)return['flat','&plusmn;0'];const up=d>0;const cls=inv?(up?'up':'down'):(up?'down':'up');return[cls,(up?'&uarr; +':'&darr; ')+d];}
+ const kpis=[
+  ['New bugs',last.new,...delta(last.new,prev.new,true),'vs Apr'],
+  ['Fixed',last.fixed,...delta(last.fixed,prev.fixed,false),'vs Apr'],
+  ['Net change','+'+last.net,...delta(last.net,prev.net,true),'new &minus; fixed'],
+  ['Escape defects (13mo)',D.esc_total,'flat','','all releases'],
+  ['Hotfixes',last.hotfixes,...delta(last.hotfixes,prev.hotfixes,true),'vs Apr'],
+  ['New P0 / P1',last.severity.P0+' / '+last.severity.P1,'flat','','critical inflow'],
+ ];
+ document.getElementById('y_kpis').innerHTML=kpis.map(k=>`<div class="kpi"><div class="label">${k[0]}</div><div class="val">${k[1]}</div><div class="delta ${k[2]}">${k[3]||''} <span style="color:var(--grey);font-weight:500">${k[4]}</span></div></div>`).join('');
+ new Chart(c_nf,{type:'line',data:{labels:D.labels,datasets:[{label:'New',data:D.new,borderColor:C.red,backgroundColor:C.red,tension:.3,pointRadius:3},{label:'Fixed',data:D.fixed,borderColor:C.green,backgroundColor:C.green,tension:.3,pointRadius:3}]},options:baseOpts()});
+ new Chart(c_net,{data:{labels:D.labels,datasets:[{type:'bar',label:'Net / month',data:D.net,backgroundColor:D.net.map(v=>v>0?'#E1575999':'#59A14F99'),borderColor:D.net.map(v=>v>0?C.red:C.green),borderWidth:1,yAxisID:'y'},{type:'line',label:'Cumulative (rel.)',data:D.cum,borderColor:C.purple,backgroundColor:C.purple,tension:.3,pointRadius:2,yAxisID:'y1'}]},options:baseOpts({scales:{y:{title:{display:true,text:'net'}},y1:{position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'cumulative'}}}})});
+ new Chart(c_sev,{type:'bar',data:{labels:D.labels,datasets:[{label:'P0',data:D.p0,backgroundColor:C.p0},{label:'P1',data:D.p1,backgroundColor:C.p1},{label:'P2',data:D.p2,backgroundColor:C.p2},{label:'P3',data:D.p3,backgroundColor:C.p3},{label:'Undef',data:D.un,backgroundColor:C.un}]},options:baseOpts({scales:{x:{stacked:true},y:{stacked:true}}})});
+ new Chart(c_hot,{type:'bar',data:{labels:D.labels,datasets:[{label:'Hotfixes',data:D.hot,backgroundColor:C.blue2},{label:'Base releases',data:D.bases,backgroundColor:C.lblue}]},options:baseOpts()});
+ new Chart(c_fr,{type:'line',data:{labels:D.labels,datasets:[{label:'Fix rate',data:D.fr,borderColor:C.blue,backgroundColor:'#2E549622',fill:true,tension:.3,pointRadius:3}]},options:baseOpts({scales:{y:{title:{display:true,text:'fixed / new'}}},plugins:{legend:{display:false}}})});
+ new Chart(c_sla,{type:'line',data:{labels:D.labels,datasets:[{label:'SLA adherence %',data:D.sla,borderColor:C.green,backgroundColor:C.green,spanGaps:true,tension:.3,pointRadius:3}]},options:baseOpts({scales:{y:{max:100,title:{display:true,text:'%'}}},plugins:{legend:{display:false}}})});
+ const escBase=D.esc_rel.map(r=>parseInt(r.slice(1))>=542?C.amber:C.blue2);
+ const escChart=new Chart(c_esc,{type:'bar',data:{labels:D.esc_rel,datasets:[{label:'Escape defects',data:D.esc_val,backgroundColor:escBase.slice()}]},options:baseOpts({onClick:(e,els)=>{if(els&&els.length)selectRel(els[0].index);},plugins:{legend:{display:false},tooltip:{callbacks:{title:i=>i[0].label+(parseInt(i[0].label.slice(1))>=542?' (Hikari/AI era)':''),afterBody:()=>'Click for release highlights'}}},scales:{y:{title:{display:true,text:'# escape defects'},ticks:{precision:0}}}})});
+ const relsel=document.getElementById('relsel');
+ relsel.innerHTML=D.esc_rel.map((v,i)=>`<option value="${i}">${v} — ${RELHL[v]?RELHL[v].cnt:0} escape defect(s)${RELHL[v]&&RELHL[v].era==='hikari'?' · Hikari era':''}</option>`).join('');
+ relsel.onchange=e=>selectRel(+e.target.value);
+ const SEVC={P0:'#C00000',P1:'#ED7D31',P2:'#FFC000',P3:'#70AD47',Undefined:'#A6A6A6'};
+ function hesc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+ function renderRelPanel(v){
+  const d=RELHL[v]; if(!d)return;
+  const ship=d.ship&&d.ship.length?`<ul class="shiplist">${d.ship.map(s=>`<li>${hesc(s)}</li>`).join('')}</ul>`:`<p class="relempty">No feature list recorded for this release.</p>`;
+  const ndoc=d.def.length;
+  const defs=ndoc?`<ul class="deflist">${d.def.map(x=>`<li><span class="sevpill" style="background:${SEVC[x.s]||'#A6A6A6'};color:${x.s==='P2'?'#5a4500':'#fff'}">${hesc(x.s)}</span><div><div class="def-t">${hesc(x.t)}</div><div class="def-r">${hesc(x.r)}</div></div></li>`).join('')}</ul>`:`<p class="relempty">No per-ticket detail recorded for this release — earlier-cohort attribution is evidence-based (counts only).</p>`;
+  const remain=d.cnt-ndoc;
+  const remainNote=remain>0?`<p class="relempty" style="margin-top:8px">+ ${remain} earlier-cohort escape defect${remain!==1?'s':''} attributed to ${v} (counted on the chart; per-ticket detail not itemized).</p>`:'';
+  document.getElementById('relpanel').innerHTML=
+   `<div class="relhead"><span class="rname">${v}</span><span class="erabadge ${d.era}">${d.era==='hikari'?'Hikari / AI era':'Pre-Hikari'}</span><span class="relcnt">${d.cnt} escape defect${d.cnt!==1?'s':''} on the chart</span></div>`+
+   `<div class="relsec"><h4>What shipped</h4>${ship}</div>`+
+   `<div class="relsec"><h4>Escape defects traced to ${v}${ndoc?` (${ndoc} documented)`:''}</h4>${defs}${remainNote}</div>`;
+ }
+ function selectRel(i){
+  escChart.data.datasets[0].backgroundColor=escBase.map((c,idx)=>idx===i?C.navy:c);
+  escChart.update();
+  relsel.value=i;
+  renderRelPanel(D.esc_rel[i]);
+ }
+ selectRel(D.esc_rel.indexOf('v542'));
+ new Chart(c_fixdev,{type:'bar',data:{labels:D.fixdev_lab,datasets:[{label:'Bugs fixed',data:D.fixdev_val,backgroundColor:D.fixdev_lab.map(l=>l==='Unassigned'||l==='Others'?C.grey:C.green)}]},options:baseOpts({indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:'bugs fixed'},ticks:{precision:0}}}})});
+ new Chart(c_creator,{type:'bar',data:{labels:D.crt_lab,datasets:[{label:'Bugs created',data:D.crt_val,backgroundColor:D.crt_lab.map(l=>l==='Others'?C.grey:C.blue)}]},options:baseOpts({indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:'bugs reported'},ticks:{precision:0}}}})});
+
+ const rows=D.rows.slice();const f=(v)=>v==null?'&mdash;':v;
+ function renderTbl(){document.querySelector('#tbl tbody').innerHTML=rows.map(r=>`<tr data-m="${r.month}"><td>${r.month}</td><td>${r.new}</td><td>${r.fixed}</td><td style="color:${r.net>0?C.red:C.green};font-weight:600">${r.net>0?'+':''}${r.net}</td><td>${r.cum_backlog}</td><td>${r.fix_rate.toFixed(2)}</td><td>${r.p0p1}</td><td>${f(r.bases)}</td><td>${f(r.hotfixes)}</td><td>${f(r.avg_res_bdays)}</td><td>${r.sla_adherence==null?'&mdash;':r.sla_adherence+'%'}</td></tr>`).join('');
+  document.querySelectorAll('#tbl tbody tr').forEach(tr=>tr.onclick=()=>{const mi=D.rows.findIndex(x=>x.month===tr.dataset.m);if(mi>=0){monthIdx=mi;renderMonthly();switchView('monthly');}});
+ }
+ renderTbl();
+ const tot=rows.reduce((a,r)=>({n:a.n+r.new,f:a.f+r.fixed,h:a.h+(r.hotfixes||0),b:a.b+(r.bases||0)}),{n:0,f:0,h:0,b:0});
+ document.querySelector('#tbl tfoot').innerHTML=`<tr><td>TOTAL</td><td>${tot.n}</td><td>${tot.f}</td><td>+${tot.n-tot.f}</td><td></td><td>${(tot.f/tot.n).toFixed(2)}</td><td></td><td>${tot.b}</td><td>${tot.h}</td><td></td><td></td></tr>`;
+ let asc={};document.querySelectorAll('#tbl th').forEach(th=>th.onclick=()=>{const k=th.dataset.k;asc[k]=!asc[k];rows.sort((a,b)=>{let x=a[k],y=b[k];if(typeof x==='string')return asc[k]?x.localeCompare(y):y.localeCompare(x);x=x==null?-1:x;y=y==null?-1:y;return asc[k]?x-y:y-x;});renderTbl();});
+}
+
+/* =================== VIEW SWITCHING =================== */
+function switchView(v){
+ document.getElementById('view-monthly').classList.toggle('hidden',v!=='monthly');
+ document.getElementById('view-yearly').classList.toggle('hidden',v!=='yearly');
+ document.querySelectorAll('#tabs .tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
+ if(v==='yearly')buildYearly();
+ if(v==='monthly')renderMonthly();
+ window.scrollTo({top:0,behavior:'smooth'});
+}
+document.querySelectorAll('#tabs .tab').forEach(t=>t.onclick=()=>switchView(t.dataset.v));
+
+/* init — always open on the latest month */
+function openLatest(){ monthIdx=LATEST; trendMetric='new'; monthsel.value=monthIdx; trendsel.value='new'; renderMonthly(); }
+openLatest();
+/* re-assert when the tab is restored from back/forward cache, so a reopened page still lands on the latest month */
+window.addEventListener('pageshow',e=>{ if(e.persisted) openLatest(); });
+</script>
+</body></html>
